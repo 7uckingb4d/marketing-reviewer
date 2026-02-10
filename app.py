@@ -2,31 +2,19 @@ import streamlit as st
 import google.generativeai as genai
 from pypdf import PdfReader
 
-# 1. Page Configuration (Para mukhang legit na app)
-st.set_page_config(
-    page_title="Ms. AIki",
-    page_icon="⚖️",
-    layout="wide"
-)
+# 1. Page Config
+st.set_page_config(page_title="Marketing Law Reviewer", page_icon="⚖️")
+st.title("⚖️ Marketing Law Reviewer")
 
-st.title("⚖️ Marketing Law Reviewer AI")
-st.caption("Upload your PDF Lecture Notes on the left to start.")
-
-# 2. Sidebar para sa Upload
+# 2. Sidebar Upload
 with st.sidebar:
-    st.header("📂 Knowledge Base")
-    uploaded_files = st.file_uploader(
-        "Upload Lecture Notes (PDF)", 
-        type="pdf", 
-        accept_multiple_files=True
-    )
-    
-    # Button para burahin ang chat pag may bagong topic
-    if st.button("Clear Chat History"):
+    st.header("Upload PDF Notes")
+    uploaded_files = st.file_uploader("Drop PDF here", type="pdf", accept_multiple_files=True)
+    if st.button("Clear Chat"):
         st.session_state.messages = []
         st.rerun()
 
-# 3. Function para basahin ang PDF
+# 3. PDF Function
 def get_pdf_text(files):
     text = ""
     for pdf in files:
@@ -35,81 +23,59 @@ def get_pdf_text(files):
             text += page.extract_text()
     return text
 
-# 4. Load Context (Yung laman ng PDF)
+# 4. Load Context
 if uploaded_files:
-    with st.spinner("Reading notes..."):
-        context_text = get_pdf_text(uploaded_files)
-    st.sidebar.success(f"Notes Loaded! ✅")
+    context_text = get_pdf_text(uploaded_files)
+    st.sidebar.success("✅ Notes Loaded!")
 else:
     context_text = ""
-    st.sidebar.warning("No PDF uploaded yet.")
 
-# 5. API Key Setup (Kukunin nito yung susi sa Settings ng Streamlit)
+# 5. API Key Setup
 try:
     if "GEMINI_API_KEY" in st.secrets:
         genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
+        # FIX: Gamitin ang 'gemini-pro' (Mas stable ito kaysa flash)
         model = genai.GenerativeModel('gemini-pro')
     else:
-        st.error("⚠️ Wala pang API Key. Ilagay ito sa Streamlit Secrets.")
+        st.error("⚠️ Error: Wala pang API Key sa Secrets.")
         st.stop()
 except Exception as e:
-    st.error(f"Error sa API Key: {e}")
+    st.error(f"Connection Error: {e}")
 
-# 6. Chat History (Para hindi mawala ang usapan)
+# 6. Chat History
 if "messages" not in st.session_state:
-    st.session_state.messages = [
-        {"role": "assistant", "content": "Hi! Upload mo muna yung PDF notes mo sa kaliwa, tapos tanungin mo ako. Pwede rin kitang i-quiz!"}
-    ]
+    st.session_state.messages = [{"role": "assistant", "content": "Hi! Upload ka ng PDF o magtanong ka na."}]
 
-# Display previous messages
 for msg in st.session_state.messages:
     with st.chat_message(msg["role"]):
         st.markdown(msg["content"])
 
-# 7. Main Chat Logic (Ang Utak ng AI)
-if user_input := st.chat_input("Ask a question about the law..."):
-    # Display user message
+# 7. Main Logic
+if user_input := st.chat_input("Ask a question..."):
     st.session_state.messages.append({"role": "user", "content": user_input})
     with st.chat_message("user"):
         st.markdown(user_input)
 
-    # Check kung may PDF na
-    if not context_text:
-        response_text = "Please upload a PDF first so I know what to review!"
-    else:
-        # System Prompt (Dito natin utusan yung AI)
-        system_prompt = f"""
-        ROLE: You are an expert Marketing Law Tutor.
-        
-        INSTRUCTIONS:
-        - Answer based ONLY on the provided CONTEXT TEXT.
-        - If the user asks for a quiz, give a situational problem relevant to Marketing (Ads, Sales, etc).
-        - Use Taglish (Tagalog-English) to be approachable.
-        - Cite specific Articles if mentioned in the text.
-        
-        CONTEXT TEXT:
-        {context_text}
-        
-        USER QUESTION:
-        {user_input}
-        """
-        
-        # Generate Answer
-# ... (ibang code sa taas)
+    # Show "Thinking..." spinner
+    with st.spinner("Nag-iisip si AI..."):
+        try:
+            # Fallback logic: Kung walang PDF, sasagot pa rin siya (General Knowledge)
+            if not context_text:
+                system_prompt = f"You are a helpful tutor. User asks: {user_input}"
+            else:
+                system_prompt = f"""
+                ROLE: Marketing Tutor.
+                CONTEXT: {context_text}
+                QUESTION: {user_input}
+                """
+            
+            # Generate Reply
+            response = model.generate_content(system_prompt)
+            response_text = response.text
+            
+        except Exception as e:
+            response_text = f"❌ Error: {e}"
 
-try:
-    if "GEMINI_API_KEY" in st.secrets:
-        genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
-        # Gamitin natin ito, ito ang pinaka-stable at mabilis
-        model = genai.GenerativeModel('gemini-1.5-flash')
-    else:
-        st.error("⚠️ Wala pang API Key. Ilagay sa Streamlit Secrets.")
-        st.stop()
-except Exception as e:
-    st.error(f"Error sa API Key: {e}")
-
-# ... (ibang code sa baba)
-    # Display AI Message
     with st.chat_message("assistant"):
         st.markdown(response_text)
     st.session_state.messages.append({"role": "assistant", "content": response_text})
