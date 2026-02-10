@@ -95,12 +95,20 @@ if user_input := st.chat_input("Ask a question about the law..."):
         """
         
         # Generate Answer
-        try:
-            response = model.generate_content(system_prompt)
-            response_text = response.text
-        except Exception as e:
-            response_text = f"Sorry, may error: {e}"
+# ... (ibang code sa taas)
 
+try:
+    if "GEMINI_API_KEY" in st.secrets:
+        genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
+        # Gamitin natin ito, ito ang pinaka-stable at mabilis
+        model = genai.GenerativeModel('gemini-1.5-flash')
+    else:
+        st.error("⚠️ Wala pang API Key. Ilagay sa Streamlit Secrets.")
+        st.stop()
+except Exception as e:
+    st.error(f"Error sa API Key: {e}")
+
+# ... (ibang code sa baba)
     # Display AI Message
     with st.chat_message("assistant"):
         st.markdown(response_text)
