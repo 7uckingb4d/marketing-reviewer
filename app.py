@@ -1,67 +1,39 @@
 import streamlit as st
 import google.generativeai as genai
-from pypdf import PdfReader
 
-# Page Setup
-st.set_page_config(page_title="Marketing Law Reviewer", page_icon="⚖️")
-st.title("⚖️ Marketing Law Reviewer")
+st.title("🔍 Model Scanner (System Check)")
 
-# Sidebar
-with st.sidebar:
-    st.header("Upload PDF Notes")
-    uploaded_files = st.file_uploader("Drop PDF here", type="pdf", accept_multiple_files=True)
-
-# PDF Logic
-def get_pdf_text(files):
-    text = ""
-    for pdf in files:
-        reader = PdfReader(pdf)
-        for page in reader.pages:
-            text += page.extract_text()
-    return text
-
-if uploaded_files:
-    context_text = get_pdf_text(uploaded_files)
-    st.sidebar.success("✅ Notes Loaded!")
-else:
-    context_text = ""
-
-# API Setup
+# 1. API Key Check
 try:
-    if "GEMINI_API_KEY" in st.secrets:
-        genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
-        # Eto ang gagamitin natin, sureball sa latest library
-        model = genai.GenerativeModel('gemini-1.5-flash')
-    else:
-        st.error("⚠️ Wala pang API Key.")
-        st.stop()
+    api_key = st.secrets["GEMINI_API_KEY"]
+    genai.configure(api_key=api_key)
+    st.success("✅ API Key Found!")
 except Exception as e:
-    st.error(f"Connection Error: {e}")
+    st.error(f"❌ API Key Error: {e}")
+    st.stop()
 
-# Chat Interface
-if "messages" not in st.session_state:
-    st.session_state.messages = [{"role": "assistant", "content": "Hi! Upload ka ng notes o magtanong ka na."}]
+# 2. Check Library Version
+import importlib.metadata
+try:
+    version = importlib.metadata.version("google-generativeai")
+    st.write(f"📚 Google Library Version: **{version}**")
+except:
+    st.write("📚 Library Version: Unknown")
 
-for msg in st.session_state.messages:
-    with st.chat_message(msg["role"]):
-        st.markdown(msg["content"])
+# 3. List Available Models
+st.write("---")
+st.header("📋 Available Models for YOU:")
+st.write("Kung walang lumabas dito, ibig sabihin kailangan i-update ang requirements.txt")
 
-if user_input := st.chat_input("Ask a question..."):
-    st.session_state.messages.append({"role": "user", "content": user_input})
-    with st.chat_message("user"):
-        st.markdown(user_input)
-
-    # AI Reply
-    if not context_text:
-        # Fallback kung walang PDF
-        full_prompt = f"User Question: {user_input}"
-    else:
-        full_prompt = f"Context: {context_text}\n\nQuestion: {user_input}\nAnswer in Taglish:"
-
-    try:
-        response = model.generate_content(full_prompt)
-        st.session_state.messages.append({"role": "assistant", "content": response.text})
-        with st.chat_message("assistant"):
-            st.markdown(response.text)
-    except Exception as e:
-        st.error(f"Error: {e}")
+try:
+    count = 0
+    for m in genai.list_models():
+        if 'generateContent' in m.supported_generation_methods:
+            st.code(m.name) # Kopyahin mo kung ano ang lumabas dito!
+            count += 1
+    
+    if count == 0:
+        st.warning("⚠️ Walang nakitang model. Luma ang library.")
+        
+except Exception as e:
+    st.error(f"❌ Error Scanning Models: {e}")
