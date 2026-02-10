@@ -4,7 +4,7 @@ from pypdf import PdfReader
 
 # 1. Page Configuration (Para mukhang legit na app)
 st.set_page_config(
-    page_title="Marketing Law Reviewer",
+    page_title="Ms. AIki",
     page_icon="⚖️",
     layout="wide"
 )
