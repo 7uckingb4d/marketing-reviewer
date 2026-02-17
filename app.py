@@ -43,7 +43,7 @@ if not st.session_state.logged_in:
                 st.rerun()
             else:
                 st.session_state.attempts += 1
-                st.error(f"Mali ang info pre. {3 - st.session_state.attempts} attempts left.")
+                st.error(f"WRONG CREDENTIALS {3 - st.session_state.attempts} attempts left.")
     st.stop()
 
 # 3. MAIN APP (PLV MM REVIEWER) - Dito papasok pag naka-login na
