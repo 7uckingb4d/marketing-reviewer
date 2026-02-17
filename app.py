@@ -2,20 +2,29 @@ import streamlit as st
 import google.generativeai as genai
 from pypdf import PdfReader
 
-# 1. Page Config
-st.set_page_config(page_title="Marketing Law Reviewer", page_icon="⚖️")
-st.title("⚖️ Marketing Law Reviewer")
-st.caption("Powered by Gemini 2.5 Flash")
+# 1. CSS FOR FULL BRANDING (Hiding Streamlit/Gemini vibes)
+st.set_page_config(page_title="MKTG Law Buddy", page_icon="⚖️")
 
-# 2. Sidebar Upload
+st.markdown("""
+    <style>
+    #MainMenu {visibility: hidden;}
+    footer {visibility: hidden;}
+    header {visibility: hidden;}
+    .stChatMessage { border-radius: 15px; background-color: #f0f2f6; }
+    </style>
+    """, unsafe_allow_html=True)
+
+# 2. SIDEBAR
 with st.sidebar:
-    st.header("Upload PDF Notes")
-    uploaded_files = st.file_uploader("Drop PDF here", type="pdf", accept_multiple_files=True)
-    if st.button("Clear Chat"):
+    st.title("⚖️ MKTG Law Buddy")
+    st.subheader("For Misaki ❤️") #
+    st.markdown("---")
+    uploaded_files = st.file_uploader("Upload PDF Notes", type="pdf", accept_multiple_files=True)
+    if st.button("Reset Session"):
         st.session_state.messages = []
         st.rerun()
 
-# 3. PDF Logic
+# 3. PDF LOGIC
 def get_pdf_text(files):
     text = ""
     for pdf in files:
@@ -24,60 +33,60 @@ def get_pdf_text(files):
             text += page.extract_text()
     return text
 
-if uploaded_files:
-    context_text = get_pdf_text(uploaded_files)
-    st.sidebar.success("✅ Notes Loaded!")
-else:
-    context_text = ""
+context_text = get_pdf_text(uploaded_files) if uploaded_files else ""
 
-# 4. API Setup (Using your available model)
+# 4. API SETUP (Gemini 3 Flash)
 try:
-    if "GEMINI_API_KEY" in st.secrets:
-        genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
-        
-        # GINAMIT NATIN YUNG NASA LISTAHAN MO:
-        model = genai.GenerativeModel('gemini-2.5-flash') 
-    else:
-        st.error("⚠️ Error: Wala pang API Key sa Secrets.")
-        st.stop()
+    genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
+    model = genai.GenerativeModel('gemini-3-flash-preview') 
 except Exception as e:
-    st.error(f"Connection Error: {e}")
+    st.error("System configuration error.")
+    st.stop()
 
-# 5. Chat History
+# 5. THE "BRAIN" - SYSTEM INSTRUCTIONS (Hiding Gemini Identity)
+SYSTEM_IDENTITY = f"""
+You are NOT Gemini. You are NOT an AI made by Google. 
+Your name is "MKTG Law Buddy", a dedicated Marketing Reviewing App specially created for Misaki, a Marketing Management student.
+
+STRICT RULES:
+1. If anyone asks who you are, say: "I am MKTG Law Buddy, your dedicated reviewer for Laws and Obligations."
+2. Never mention Google, Gemini, or Large Language Models.
+3. Your only purpose is to help Misaki study Marketing Law and Obligations based on her uploaded notes.
+4. Speak in a supportive, witty Taglish tone.
+5. If no notes are uploaded, remind her politely to upload her PDFs first.
+6. Use marketing-related analogies (e.g., branding, consumer behavior, ROI) when explaining legal concepts.
+
+CONTEXT FROM NOTES:
+{context_text}
+"""
+
+# 6. CHAT INTERFACE
 if "messages" not in st.session_state:
-    st.session_state.messages = [{"role": "assistant", "content": "Hi! Upload ka ng notes sa gilid, tapos start na tayo mag-review."}]
+    st.session_state.messages = [{"role": "assistant", "content": "Hello Misaki! I am your MKTG Law Buddy. Ready na ako mag-review with you. Upload mo na yung PDFs mo para masimulan na natin ang session! ✨"}] #
 
 for msg in st.session_state.messages:
     with st.chat_message(msg["role"]):
         st.markdown(msg["content"])
 
-# 6. Main Chat Logic
-if user_input := st.chat_input("Ask a question..."):
-    st.session_state.messages.append({"role": "user", "content": user_input})
+if prompt := st.chat_input("Ask your MKTG Law Buddy..."):
+    st.session_state.messages.append({"role": "user", "content": prompt})
     with st.chat_message("user"):
-        st.markdown(user_input)
-
-    # Show "Thinking..." spinner
-    with st.spinner("Analyzing..."):
-        try:
-            # Fallback logic
-            if not context_text:
-                full_prompt = f"User Question: {user_input}"
-            else:
-                full_prompt = f"""
-                ROLE: Marketing Law Tutor.
-                CONTEXT: {context_text}
-                QUESTION: {user_input}
-                INSTRUCTION: Answer concisely in Taglish based on the context.
-                """
-            
-            # Generate Reply
-            response = model.generate_content(full_prompt)
-            response_text = response.text
-            
-        except Exception as e:
-            response_text = f"❌ Error: {e}"
+        st.markdown(prompt)
 
     with st.chat_message("assistant"):
-        st.markdown(response_text)
-    st.session_state.messages.append({"role": "assistant", "content": response_text})
+        message_placeholder = st.empty()
+        full_response = ""
+        
+        try:
+            # We inject the identity every time to ensure it doesn't break character
+            response = model.generate_content([SYSTEM_IDENTITY, prompt], stream=True)
+            
+            for chunk in response:
+                full_response += chunk.text
+                message_placeholder.markdown(full_response + "▌")
+            
+            message_placeholder.markdown(full_response)
+            st.session_state.messages.append({"role": "assistant", "content": full_response})
+            
+        except Exception as e:
+            st.error("Buddy is currently offline. Please try again later.")
