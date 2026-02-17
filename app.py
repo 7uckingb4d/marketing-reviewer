@@ -66,4 +66,30 @@ if "messages" not in st.session_state or not st.session_state.messages:
 # Display the messages
 for msg in st.session_state.messages:
     with st.chat_message(msg["role"]):
-        st
+        st.markdown(msg["content"])
+
+# 7. AI INTERACTION
+if prompt := st.chat_input("Ask your PLV Buddy..."):
+    st.session_state.messages.append({"role": "user", "content": prompt})
+    with st.chat_message("user"):
+        st.markdown(prompt)
+
+    with st.chat_message("assistant"):
+        placeholder = st.empty()
+        full_res = ""
+        try:
+            # Using Llama 3.3 for high-speed reasoning
+            completion = client.chat.completions.create(
+                model="llama-3.3-70b-versatile",
+                messages=[{"role": "system", "content": SYSTEM_IDENTITY}, {"role": "user", "content": prompt}],
+                stream=True,
+            )
+            for chunk in completion:
+                content = chunk.choices[0].delta.content
+                if content:
+                    full_res += content
+                    placeholder.markdown(full_res + "▌")
+            placeholder.markdown(full_res)
+            st.session_state.messages.append({"role": "assistant", "content": full_res})
+        except Exception as e:
+            st.error(f"Hiccup detected: {e}")
