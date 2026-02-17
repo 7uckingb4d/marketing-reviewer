@@ -2,29 +2,19 @@ import streamlit as st
 import google.generativeai as genai
 from pypdf import PdfReader
 
-# 1. Branding & UI
+# 1. Branding
 st.set_page_config(page_title="MKTG Law Buddy", page_icon="⚖️")
-
-# Itatago natin ang menu para mukhang app talaga
-st.markdown("""
-    <style>
-    #MainMenu {visibility: hidden;}
-    footer {visibility: hidden;}
-    header {visibility: hidden;}
-    </style>
-    """, unsafe_allow_html=True)
 
 # 2. Sidebar
 with st.sidebar:
     st.title("⚖️ MKTG Law Buddy")
     st.subheader("For Misaki ❤️")
-    st.markdown("---")
     uploaded_files = st.file_uploader("Upload PDF Notes", type="pdf", accept_multiple_files=True)
     if st.button("Reset Session"):
         st.session_state.messages = []
         st.rerun()
 
-# 3. PDF Reader
+# 3. PDF Function
 def get_pdf_text(files):
     text = ""
     for pdf in files:
@@ -35,49 +25,51 @@ def get_pdf_text(files):
 
 context_text = get_pdf_text(uploaded_files) if uploaded_files else ""
 
-# 4. API Setup
+# 4. API Setup (Using confirmed model from your scan)
 try:
     if "GEMINI_API_KEY" in st.secrets:
         genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
-        # Gamitin natin ang gemini-1.5-flash dahil ito ang pinaka-stable sa PDF
-        model = genai.GenerativeModel(
-            model_name='gemini-1.5-flash',
-            system_instruction="You are MKTG Law Buddy, a dedicated Marketing Reviewer for Misaki. You are NOT Gemini or an AI from Google. Answer in supportive Taglish using marketing analogies."
-        )
+        # Ginamit natin yung model na lumabas sa listahan mo kanina
+        model = genai.GenerativeModel('gemini-3-flash-preview') 
     else:
         st.error("Missing API Key in Secrets.")
         st.stop()
 except Exception as e:
-    st.error("System configuration error.")
-    st.stop()
+    st.error(f"Config Error: {e}")
 
 # 5. Chat History
 if "messages" not in st.session_state:
-    st.session_state.messages = [{"role": "assistant", "content": "Hello Misaki! I am your MKTG Law Buddy. Upload mo na yung PDFs mo para masimulan na natin ang session! ✨"}]
+    st.session_state.messages = [{"role": "assistant", "content": "Hi Misaki! Ready na ako. Upload mo na yung notes mo para makapagsimula tayo! ✨"}]
 
 for msg in st.session_state.messages:
     with st.chat_message(msg["role"]):
         st.markdown(msg["content"])
 
-# 6. Chat Logic (Simplified)
+# 6. Chat Logic with Debugging
 if prompt := st.chat_input("Ask your MKTG Law Buddy..."):
-    # User message
     st.session_state.messages.append({"role": "user", "content": prompt})
     with st.chat_message("user"):
         st.markdown(prompt)
 
-    # Assistant response
     with st.chat_message("assistant"):
-        with st.spinner("Analyzing..."):
+        with st.spinner("Thinking..."):
             try:
-                # Isama ang PDF context sa prompt
-                full_prompt = f"Context from notes: {context_text}\n\nUser Question: {prompt}"
-                response = model.generate_content(full_prompt)
+                # Prompt Engineering to hide Gemini identity
+                system_instruction = f"""
+                You are MKTG Law Buddy, a marketing reviewer app for Misaki. 
+                Answer using this context: {context_text}
+                Speak in supportive Taglish. Be witty.
+                """
+                
+                response = model.generate_content([system_instruction, prompt])
                 
                 if response.text:
                     st.markdown(response.text)
                     st.session_state.messages.append({"role": "assistant", "content": response.text})
                 else:
-                    st.error("Buddy is shy. Please try rephrasing.")
+                    st.warning("No response generated. Safety filters might be blocking this.")
+                    
             except Exception as e:
-                st.error("Buddy had a small hiccup. Try again!")
+                # Ito yung magsasabi sa atin kung bakit may 'hiccup'
+                st.error(f"❌ Real Error: {e}") 
+                st.info("Check if your API Key is still valid or if the model name is correct.")
