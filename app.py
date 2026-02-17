@@ -17,12 +17,11 @@ st.markdown("""
 # 2. SIDEBAR - SUBJECT SELECTION
 with st.sidebar:
     st.markdown("### 🎓 Academic Hub")
-    # Identify the subject Misaki is studying
     mode = st.radio("Choose Priority:", ["Law of ObliCon", "Business Research"])
     st.markdown("---")
     uploaded_files = st.file_uploader("Upload PDFs (Notes/Research)", type="pdf", accept_multiple_files=True)
     if st.button("✨ Clear Session"):
-        st.session_state.messages = [] # Resetting the chat
+        st.session_state.messages = []
         st.rerun()
 
 # 3. PDF PROCESSING
@@ -45,51 +44,21 @@ except Exception:
     st.error("Check Secrets Configuration (GROQ_API_KEY).")
     st.stop()
 
-# 5. SPECIALIZED SYSTEM PROMPT
+# 5. SPECIALIZED SYSTEM PROMPT (Optimized for Simplicity)
 SYSTEM_IDENTITY = f"""
 You are the personal AI Academic Tutor for Misaki, a BSBA Marketing Management student at PLV.
 Current Mode: {mode}
 CONTEXT FROM UPLOADED FILES: {context_text}
 
-STRICT OBJECTIVES:
-1. FOR OBLICON: Focus on memorization techniques. Use mnemonics, situational examples (cases), and quizzes to help her memorize articles.
-2. FOR BUSINESS RESEARCH: Help with sources, APA/MLA formatting, and conceptual frameworks. Ensure all formats are professional.
-3. TONE: Witty, supportive Taglish.
-4. MARKETING ANGLE: Link everything to Marketing Management.
+STRICT CORE RULES:
+1. SIMPLICITY IS KEY: Explain concepts in layman's terms. Avoid using "big words" or overly academic jargon unless absolutely necessary.
+2. NO NOSEBLEED: If you must use a legal or research term, explain it immediately using a simple everyday example.
+3. LANGUAGE: Use witty, supportive, and conversational Taglish.
+4. OBLICON GOAL: Help her memorize articles using mnemonics and situational stories (e.g., Shopee/Lazada analogies).
+5. RESEARCH GOAL: Provide clear, step-by-step formats and source guidance without being overwhelming.
+6. IDENTITY: You are MKTG Law Buddy, not an AI. Stay humble and helpful.
 """
 
-# 6. CHAT INTERFACE (FIXED: Hindi na mag-ba-blank)
-# Check if messages exist OR if it's currently empty
+# 6. CHAT INTERFACE
 if "messages" not in st.session_state or not st.session_state.messages:
-    st.session_state.messages = [{"role": "assistant", "content": f"Ready na ako for {mode}, Misaki! Ano ang aaralin natin today? ✨"}]
-
-# Display the messages
-for msg in st.session_state.messages:
-    with st.chat_message(msg["role"]):
-        st.markdown(msg["content"])
-
-# 7. AI INTERACTION
-if prompt := st.chat_input("Ask your PLV Buddy..."):
-    st.session_state.messages.append({"role": "user", "content": prompt})
-    with st.chat_message("user"):
-        st.markdown(prompt)
-
-    with st.chat_message("assistant"):
-        placeholder = st.empty()
-        full_res = ""
-        try:
-            # Using Llama 3.3 for high-speed reasoning
-            completion = client.chat.completions.create(
-                model="llama-3.3-70b-versatile",
-                messages=[{"role": "system", "content": SYSTEM_IDENTITY}, {"role": "user", "content": prompt}],
-                stream=True,
-            )
-            for chunk in completion:
-                content = chunk.choices[0].delta.content
-                if content:
-                    full_res += content
-                    placeholder.markdown(full_res + "▌")
-            placeholder.markdown(full_res)
-            st.session_state.messages.append({"role": "assistant", "content": full_res})
-        except Exception as e:
-            st.error(f"Hiccup detected: {e}")
+    st.session_state.messages = [{"role": "assistant", "content": f"Hi Misaki! Ready na ako for {mode}. Chill lang tayo, explain ko sa'yo lahat nang madalian. Ano start natin? ✨"}]
