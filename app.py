@@ -1,64 +1,28 @@
 import streamlit as st
 import google.generativeai as genai
 from pypdf import PdfReader
-import time
 
-# 1. PREMIUM UI CONFIGURATION
-st.set_page_config(page_title="MKTG Law Buddy Pro", page_icon="💎", layout="wide")
+# 1. PREMIUM UI
+st.set_page_config(page_title="MKTG Law Buddy Pro", page_icon="💎")
 
-# Custom CSS for Premium Look
 st.markdown("""
     <style>
-    /* Main Background */
-    .stApp {
-        background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
-        color: #ffffff;
-    }
-    /* Sidebar Styling */
-    section[data-testid="stSidebar"] {
-        background-color: rgba(255, 255, 255, 0.05);
-        backdrop-filter: blur(10px);
-        border-right: 1px solid rgba(255, 255, 255, 0.1);
-    }
-    /* Chat Message Bubbles */
-    .stChatMessage {
-        background: rgba(255, 255, 255, 0.05) !important;
-        border: 1px solid rgba(255, 255, 255, 0.1) !important;
-        border-radius: 20px !important;
-        box-shadow: 0 4px 15px rgba(0,0,0,0.3);
-    }
-    /* Gold Accent for Buttons */
-    .stButton>button {
-        background: linear-gradient(45deg, #d4af37, #f9d423);
-        color: #000;
-        font-weight: bold;
-        border: none;
-        border-radius: 25px;
-        transition: 0.3s;
-    }
-    .stButton>button:hover {
-        transform: scale(1.05);
-        box-shadow: 0 0 15px #f9d423;
-    }
-    /* Input Bar */
-    .stChatInputContainer {
-        padding-bottom: 20px;
-    }
+    .stApp { background: linear-gradient(135deg, #0f0c29, #302b63, #24243e); color: white; }
+    .stChatMessage { background: rgba(255, 255, 255, 0.05) !important; border-radius: 15px !important; }
+    .stButton>button { background: #d4af37; color: black; font-weight: bold; border-radius: 20px; }
     </style>
     """, unsafe_allow_html=True)
 
-# 2. SIDEBAR - PERSONALIZED
+# 2. SIDEBAR
 with st.sidebar:
     st.title("⚖️ Law Buddy Pro")
-    st.markdown("### *Exclusive for Misaki*") #
-    st.write("Specialized AI for **Marketing Management** studies.")
-    st.markdown("---")
-    uploaded_files = st.file_uploader("Upload Case Studies or Notes (PDF)", type="pdf", accept_multiple_files=True)
-    if st.button("✨ Refresh Session"):
+    st.write("Specialized for **Misaki** ❤️")
+    uploaded_files = st.file_uploader("Upload PDF Notes", type="pdf", accept_multiple_files=True)
+    if st.button("Reset Session"):
         st.session_state.messages = []
         st.rerun()
 
-# 3. PDF PROCESSING
+# 3. PDF LOGIC
 def get_pdf_text(files):
     text = ""
     for pdf in files:
@@ -69,55 +33,41 @@ def get_pdf_text(files):
 
 context_text = get_pdf_text(uploaded_files) if uploaded_files else ""
 
-# 4. THE ULTIMATE BRAIN (Gemini 3 Pro)
+# 4. STABLE API SETUP (Gemini 2.0 Flash)
 try:
     genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
-    # Using the most powerful model from your scan
-    model = genai.GenerativeModel('gemini-3-pro-preview') 
+    # Ginamit natin ang 2.0 Flash dahil ito ang pinaka-stable sa listahan mo
+    model = genai.GenerativeModel('gemini-2.0-flash') 
 except Exception as e:
-    st.error("System connection error. Check API configuration.")
-    st.stop()
+    st.error("Connection Error.")
 
 # 5. CHAT ENGINE
 if "messages" not in st.session_state:
-    st.session_state.messages = [{"role": "assistant", "content": "Welcome to your premium review experience, Misaki. I am Law Buddy Pro, optimized for your Marketing Management modules. How can I assist you today? ✨"}]
+    st.session_state.messages = [{"role": "assistant", "content": "Welcome, Misaki. Ready na ako mag-review. Upload mo lang notes mo! ✨"}]
 
 for msg in st.session_state.messages:
     with st.chat_message(msg["role"]):
         st.markdown(msg["content"])
 
-if prompt := st.chat_input("Ask your expert tutor..."):
+if prompt := st.chat_input("Ask Law Buddy Pro..."):
     st.session_state.messages.append({"role": "user", "content": prompt})
     with st.chat_message("user"):
         st.markdown(prompt)
 
     with st.chat_message("assistant"):
-        message_placeholder = st.empty()
-        full_response = ""
-        
-        # Expert System Instruction
-        identity = f"""
-        IDENTITY: You are Law Buddy Pro, a world-class Legal & Marketing Consultant. 
-        PURPOSE: Assist Misaki, a Marketing Management student, in mastering Laws and Obligations.
-        TONE: Sophisticated, insightful, and supportive Taglish.
-        SOURCE: Use this provided context: {context_text}
-        
-        INSTRUCTIONS:
-        - Provide deep analysis, not just definitions.
-        - Relate every legal article to marketing strategy, consumer behavior, or branding.
-        - If Misaki asks for a quiz, give a "Harvard Business Case" style situational problem.
-        - NEVER identify as Gemini or Google. You are a bespoke tutor created for Misaki.
-        """
-
         try:
-            # High-speed streaming
-            response = model.generate_content([identity, prompt], stream=True)
-            for chunk in response:
-                full_response += chunk.text
-                message_placeholder.markdown(full_response + "▌")
+            # Simple but Effective Persona
+            full_prompt = f"System: You are Law Buddy Pro for Misaki (Marketing student). Context: {context_text}\n\nQuestion: {prompt}\nAnswer in Taglish:"
             
-            message_placeholder.markdown(full_response)
-            st.session_state.messages.append({"role": "assistant", "content": full_response})
+            # Non-streaming for stability
+            response = model.generate_content(full_prompt)
             
+            if response.text:
+                st.markdown(response.text)
+                st.session_state.messages.append({"role": "assistant", "content": response.text})
+            else:
+                st.error("Empty response. Try again.")
+                
         except Exception as e:
-            st.error("The system is busy analyzing complex data. Please try again.")
+            # Ipinapakita na ang TUNAY na error para ma-debug natin
+            st.error(f"❌ Error Detail: {e}")
