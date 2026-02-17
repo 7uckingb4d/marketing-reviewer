@@ -2,29 +2,29 @@ import streamlit as st
 import google.generativeai as genai
 from pypdf import PdfReader
 
-# 1. CSS FOR FULL BRANDING (Hiding Streamlit/Gemini vibes)
+# 1. Branding & UI
 st.set_page_config(page_title="MKTG Law Buddy", page_icon="⚖️")
 
+# Itatago natin ang menu para mukhang app talaga
 st.markdown("""
     <style>
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
     header {visibility: hidden;}
-    .stChatMessage { border-radius: 15px; background-color: #f0f2f6; }
     </style>
     """, unsafe_allow_html=True)
 
-# 2. SIDEBAR
+# 2. Sidebar
 with st.sidebar:
     st.title("⚖️ MKTG Law Buddy")
-    st.subheader("For Misaki ❤️") #
+    st.subheader("For Misaki ❤️")
     st.markdown("---")
     uploaded_files = st.file_uploader("Upload PDF Notes", type="pdf", accept_multiple_files=True)
     if st.button("Reset Session"):
         st.session_state.messages = []
         st.rerun()
 
-# 3. PDF LOGIC
+# 3. PDF Reader
 def get_pdf_text(files):
     text = ""
     for pdf in files:
@@ -35,58 +35,49 @@ def get_pdf_text(files):
 
 context_text = get_pdf_text(uploaded_files) if uploaded_files else ""
 
-# 4. API SETUP (Gemini 3 Flash)
+# 4. API Setup
 try:
-    genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
-    model = genai.GenerativeModel('gemini-3-flash-preview') 
+    if "GEMINI_API_KEY" in st.secrets:
+        genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
+        # Gamitin natin ang gemini-1.5-flash dahil ito ang pinaka-stable sa PDF
+        model = genai.GenerativeModel(
+            model_name='gemini-1.5-flash',
+            system_instruction="You are MKTG Law Buddy, a dedicated Marketing Reviewer for Misaki. You are NOT Gemini or an AI from Google. Answer in supportive Taglish using marketing analogies."
+        )
+    else:
+        st.error("Missing API Key in Secrets.")
+        st.stop()
 except Exception as e:
     st.error("System configuration error.")
     st.stop()
 
-# 5. THE "BRAIN" - SYSTEM INSTRUCTIONS (Hiding Gemini Identity)
-SYSTEM_IDENTITY = f"""
-You are NOT Gemini. You are NOT an AI made by Google. 
-Your name is "MKTG Law Buddy", a dedicated Marketing Reviewing App specially created for Misaki, a Marketing Management student.
-
-STRICT RULES:
-1. If anyone asks who you are, say: "I am MKTG Law Buddy, your dedicated reviewer for Laws and Obligations."
-2. Never mention Google, Gemini, or Large Language Models.
-3. Your only purpose is to help Misaki study Marketing Law and Obligations based on her uploaded notes.
-4. Speak in a supportive, witty Taglish tone.
-5. If no notes are uploaded, remind her politely to upload her PDFs first.
-6. Use marketing-related analogies (e.g., branding, consumer behavior, ROI) when explaining legal concepts.
-
-CONTEXT FROM NOTES:
-{context_text}
-"""
-
-# 6. CHAT INTERFACE
+# 5. Chat History
 if "messages" not in st.session_state:
-    st.session_state.messages = [{"role": "assistant", "content": "Hello Misaki! I am your MKTG Law Buddy. Ready na ako mag-review with you. Upload mo na yung PDFs mo para masimulan na natin ang session! ✨"}] #
+    st.session_state.messages = [{"role": "assistant", "content": "Hello Misaki! I am your MKTG Law Buddy. Upload mo na yung PDFs mo para masimulan na natin ang session! ✨"}]
 
 for msg in st.session_state.messages:
     with st.chat_message(msg["role"]):
         st.markdown(msg["content"])
 
+# 6. Chat Logic (Simplified)
 if prompt := st.chat_input("Ask your MKTG Law Buddy..."):
+    # User message
     st.session_state.messages.append({"role": "user", "content": prompt})
     with st.chat_message("user"):
         st.markdown(prompt)
 
+    # Assistant response
     with st.chat_message("assistant"):
-        message_placeholder = st.empty()
-        full_response = ""
-        
-        try:
-            # We inject the identity every time to ensure it doesn't break character
-            response = model.generate_content([SYSTEM_IDENTITY, prompt], stream=True)
-            
-            for chunk in response:
-                full_response += chunk.text
-                message_placeholder.markdown(full_response + "▌")
-            
-            message_placeholder.markdown(full_response)
-            st.session_state.messages.append({"role": "assistant", "content": full_response})
-            
-        except Exception as e:
-            st.error("Buddy is currently offline. Please try again later.")
+        with st.spinner("Analyzing..."):
+            try:
+                # Isama ang PDF context sa prompt
+                full_prompt = f"Context from notes: {context_text}\n\nUser Question: {prompt}"
+                response = model.generate_content(full_prompt)
+                
+                if response.text:
+                    st.markdown(response.text)
+                    st.session_state.messages.append({"role": "assistant", "content": response.text})
+                else:
+                    st.error("Buddy is shy. Please try rephrasing.")
+            except Exception as e:
+                st.error("Buddy had a small hiccup. Try again!")
